@@ -9,8 +9,6 @@
 #
 # See ligatures.py for a list of all the ligatures that will be copied.
 
-from __future__ import print_function
-
 import fontforge
 import psMat
 import os
@@ -18,31 +16,24 @@ from os import path
 import sys
 
 from ligatures import ligatures
+from char_dict import char_dict
 
 # Constants
 COPYRIGHT = '''
 Programming ligatures added by Ilya Skriblovsky from FiraCode
 FiraCode Copyright (c) 2015 by Nikita Prokopov'''
 
-VERSION_MISMATCH = '''
-Ligaturizer only supports Python 2.x due to a bug in Fontforge:
-  https://github.com/fontforge/fontforge/issues/3057
-You will need to install Fontforge for Python 2 to use this script.
-'''
-
-if sys.version_info[0] != 2:
-    print(VERSION_MISMATCH)
-    sys.exit(1)
-
 def get_ligature_source(fontname):
+    # Become case-insensitive
+    fontname = fontname.lower()
     for weight in ['Bold', 'Retina', 'Medium', 'Regular', 'Light']:
-        if fontname.endswith('-' + weight):
+        if fontname.endswith('-' + weight.lower()):
             # Exact match for one of the Fira Code weights
             return 'fonts/fira/distr/otf/FiraCode-%s.otf' % weight
 
-    # No exact match. Guess that we want 'Bold' if the font name has 'Bold' in
-    # it, and 'Regular' otherwise.
-    if 'Bold' in fontname:
+    # No exact match. Guess that we want 'Bold' if the font name has 'bold' or
+    # 'heavy' in it, and 'Regular' otherwise.
+    if 'bold' in fontname or 'heavy' in fontname:
         return 'fonts/fira/distr/otf/FiraCode-Bold.otf'
     return 'fonts/fira/distr/otf/FiraCode-Regular.otf'
 
@@ -118,7 +109,7 @@ class LigatureCreator(object):
             self.font.selection.none()
             self.font.selection.select(char)
             self.font.paste()
-            self.correct_character_width(self.font[char])
+            self.correct_character_width(self.font[ord(char_dict[char])])
 
     def correct_ligature_width(self, glyph):
         """Correct the horizontal advance and scale of a ligature."""
@@ -171,7 +162,7 @@ class LigatureCreator(object):
                 # We assume here that this is because char is a single letter
                 # (e.g. 'w') rather than a character name, and the font we're
                 # editing doesn't have glyphnames for letters.
-                self.font[ord(char)].glyphname = char
+                self.font[ord(char_dict[char])].glyphname = char
 
             if i < len(input_chars) - 1:
                 self.font.createChar(-1, cr_name(i))
@@ -255,6 +246,8 @@ def update_font_metadata(font, new_name):
     replace_sfnt(font, 'UniqueID', '%s; Ligaturized' % font.fullname)
     replace_sfnt(font, 'Preferred Family', new_name)
     replace_sfnt(font, 'Compatible Full', new_name)
+    replace_sfnt(font, 'Family', new_name)
+    replace_sfnt(font, 'WWS Family', new_name)
 
 def ligaturize_font(input_font_file, output_dir, ligature_font_file,
                     output_name, prefix, **kwargs):
